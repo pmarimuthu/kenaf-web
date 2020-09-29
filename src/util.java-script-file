@@ -1,0 +1,81 @@
+const fs = require("fs");
+const path = require("path");
+let files = {};
+
+let base = ".";
+let scanSubDirectories = true;
+let regularExpression = /[A-Za-z0-9-_,\s]+\.json$/i;
+
+function loadLocaleMessages() {
+  //console.log("start ...");
+  // This condition actually should detect if it's an Node environment
+  //if (typeof require.context === 'undefined') {
+
+  require.context = (
+    base = ".",
+    scanSubDirectories = true,
+    regularExpression = /[A-Za-z0-9-_,\s]+\.json$/i
+  ) => {
+    files = {};
+    readDirectory(path.resolve(__dirname, base));
+    Module.keys = () => Object.keys(files);
+
+    //console.log("Module.keys: " + Module.keys);
+    return Module;
+  };
+}
+
+function Module(file) {
+  return require(file);
+}
+
+function readDirectory(directory) {
+  fs.readdirSync(directory).forEach((file) => {
+    const fullPath = path.resolve(directory, file);
+    //console.log(fullPath);
+
+    if (fs.statSync(fullPath).isDirectory()) {
+      if (scanSubDirectories) readDirectory(fullPath);
+      return;
+    }
+
+    if (!regularExpression.test(fullPath)) {
+      return;
+    }
+
+    files[fullPath] = true;
+  });
+}
+
+//console.log("Calling ...");
+loadLocaleMessages();
+//console.log("All done.");
+
+require.context();
+//console.log(files);
+
+//console.log("done done.");
+
+function getAllMessages(basePath) {
+  const locales = require.context(basePath, true, /[A-Za-z0-9-_,\s]+\.json$/i);
+  const messages = {};
+  locales.keys().forEach((key) => {
+    const matched = key.match(/([A-Za-z0-9-_]+)\./i);
+    if (matched && matched.length > 1) {
+      const locale = matched[1];
+      messages[locale] = locales(key);
+    }
+  });
+  //console.log(messages);
+  return messages;
+}
+
+console.log(getAllMessages("."));
+
+export default new MyI18n({
+    locale: process.env.VUE_APP_I18N_LOCALE || 'en',
+    fallbackLocale: process.env.VUE_APP_I18N_FALLBACK_LOCALE || 'en',
+    messages: loadLocaleMessages()
+  });
+
+console.log("done dana don.");
